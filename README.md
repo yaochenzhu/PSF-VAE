@@ -1,5 +1,5 @@
 
-# Path-Specific Counterfactual Fairness for Recommender Systems
+# PSF-VAE: Path-Specific Counterfactual Fairness for Recommender Systems
 
 The codes are associated with the following paper:
 >**Path-Specific Counterfactual Fairness for Recommender Systems,**    
