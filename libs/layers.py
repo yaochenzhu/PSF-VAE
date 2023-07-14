@@ -59,6 +59,37 @@ class TransposedSharedDense(layers.Layer):
         return self.activate(K.dot(inputs, K.transpose(self.W))+self.b)
 
 
+class SubDense(layers.Layer):
+    '''
+        Dense layer that shares weights (transposed) and bias 
+        with another dense layer.
+    '''
+    def __init__(self, weights, s_idx, e_idx, activation=None, **kwargs):
+        super(SubDense, self).__init__(**kwargs)
+        assert(len(weights) in [1, 2]), \
+            "Specify the [kernel] or the [kernel] and [bias]."
+        ori_dim = weights[0].shape.as_list()[0]
+        self.W = weights[0][s_idx:e_idx,:]
+        if e_idx == -1:
+            self.W = weights[0][s_idx:,:]
+        new_dim = self.W.shape.as_list()[0]
+        b_shape = self.W.shape.as_list()[1]
+        if len(weights) == 1:
+            self.b = self.add_weight(shape=(b_shape),
+                name="bias",
+                trainable=True,
+                initializer="zeros")
+        else:
+            self.b = weights[1]*new_dim/ori_dim
+        if activation:
+            self.activate = activations.get(activation)
+        else:
+            self.activate = lambda x:x
+
+    def call(self, inputs):
+        return self.activate(K.dot(inputs, self.W)+self.b)
+
+
 class AddGaussianLoss(layers.Layer):
     '''
         Add the KL divergence between the variational 
@@ -124,22 +155,6 @@ class AddBernoulliLoss(layers.Layer):
         '''
         return kl_loss
 
-
-class AddMSELoss(layers.Layer):
-    '''
-        Add the MSE loss between two variables.
-    '''
-    def __init__(self, 
-                 **kwargs):
-        super(AddMSELoss, self).__init__(**kwargs)
-
-    def call(self, inputs):
-        x1, x2  = inputs
-        mse_loss =  tf.reduce_mean(
-            tf.sqrt(tf.reduce_sum(tf.square(x1 - x2), 1
-        )))
-        return mse_loss
-    
 
 class ReparameterizeGaussian(layers.Layer):
     '''

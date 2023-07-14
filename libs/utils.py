@@ -2,30 +2,12 @@ import logging
 
 import numpy  as np
 import pandas as pd
-from scipy import sparse
 from scipy.interpolate import interp1d
 
 def sigmoid(x):
     return 1/(1 + np.exp(-x)) 
 
-def save_mat(path, mat):
-    assert path.endswith(".npy") or path.endswith(".npz")
-    if path.endswith(".npy"):
-        np.save(path, mat)
-    elif path.endswith(".npz"):
-        sparse.save_npz(path, mat)
-    
-def load_mat(path, dense=True):
-    assert path.endswith(".npy") or path.endswith(".npz")
-    if path.endswith(".npy"):
-        mat = np.load(path)
-    elif path.endswith(".npz"):
-        mat = sparse.load_npz(path)
-        if dense:
-            mat = mat.A 
-    return mat
-
-def init_logging():
+def Init_logging():
     log = logging.getLogger()
     log.setLevel(logging.INFO)
     logFormatter = logging.Formatter('%(asctime)s [%(levelname)s]: %(message)s')

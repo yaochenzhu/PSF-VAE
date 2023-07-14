@@ -1,4 +1,3 @@
-import functools
 import numpy as np
 import bottleneck as bn
 import tensorflow as tf
@@ -31,14 +30,6 @@ def mse(y_true, y_pred):
     return loss
 
 
-def neg_mse(y_true, y_pred):
-    '''
-        The tensorflow style mean squareed error
-    '''
-    loss = -tf.reduce_mean(tf.reduce_sum(tf.square(y_true - y_pred), axis=-1))
-    return loss
-
-
 def weighted_mse_generator(weight_0, weight_1):
     '''
         Should return in a partial manner.
@@ -52,18 +43,6 @@ def weighted_mse_generator(weight_0, weight_1):
     return weight_mse
 
 
-def remove_empty_users(eval_func):
-    @functools.wraps(eval_func)
-    def empty_removed_metric(y_true, y_pred, k):
-        non_empty_users = np.sum(y_true, axis=1) > 0
-        y_true = y_true[non_empty_users]
-        y_pred = y_pred[non_empty_users]
-        metric = eval_func(y_true, y_pred, k)
-        return metric
-    return empty_removed_metric
-
-
-@remove_empty_users
 def Recall_at_k(y_true, y_pred, k):
     '''
         Recall evaluated at top K (Implicit).
@@ -78,35 +57,6 @@ def Recall_at_k(y_true, y_pred, k):
     return recall
 
 
-@remove_empty_users
-def Recall_at_k(y_true, y_pred, k):
-    '''
-        Recall evaluated at top K (Implicit).
-    '''
-    batch_size = y_pred.shape[0]
-    topk_idxes = bn.argpartition(-y_pred, k, axis=1)[:, :k]
-    y_pred_bin = np.zeros_like(y_pred, dtype=np.bool)
-    y_pred_bin[np.arange(batch_size)[:, None], topk_idxes] = True
-    y_true_bin = (y_true > 0)
-    hits = np.sum(np.logical_and(y_true_bin, y_pred_bin), axis=-1).astype(np.float32)
-    recall = np.mean(hits/np.minimum(k, np.sum(y_true_bin, axis=1)))
-    return recall
-
-@remove_empty_users
-def HiR_at_k(y_true, y_pred, k):
-    '''
-        Recall evaluated at top K (Implicit).
-    '''
-    batch_size = y_pred.shape[0]
-    topk_idxes = bn.argpartition(-y_pred, k, axis=1)[:, :k]
-    y_pred_bin = np.zeros_like(y_pred, dtype=np.bool)
-    y_pred_bin[np.arange(batch_size)[:, None], topk_idxes] = True
-    y_true_bin = (y_true > 0)
-    hits = np.sum(np.logical_and(y_true_bin, y_pred_bin), axis=-1).astype(np.float32)
-    recall = np.mean(hits/k)
-    return recall
-
-@remove_empty_users
 def NDCG_at_k(y_true, y_pred, k):
     '''
         NDCG evaluated at top K (Implicit).
@@ -125,7 +75,6 @@ def NDCG_at_k(y_true, y_pred, k):
     return NDCG
 
 
-@remove_empty_users
 def DCG_at_k(y_true, y_pred, k):
     '''
         DCG evaluated at top K.
@@ -140,18 +89,17 @@ def DCG_at_k(y_true, y_pred, k):
     return np.sum(topk_y*weights, axis=-1)
 
 
-def NDCG_at_k_explicit(y_true, y_pred, k, thres=0):
+def NDCG_at_k_explicit(y_true, y_pred, k):
     '''
         NDCG evaluated at top K (Explicit).
         For binary data, use NDCG_at_k for efficiency.
     '''
-    y_true = (y_true > thres).astype(np.int32)
-    rem_users = (np.sum(y_true, axis=-1) > 0)
-    y_true = y_true[rem_users];  y_pred = y_pred[rem_users]
-    return NDCG_at_k(y_true, y_pred, k)    
+    DCG = DCG_at_k(y_true, y_pred, k)
+    normalizer = DCG_at_k(y_true, y_true, k)
+    return np.mean(DCG/normalizer)
 
 
-def Recall_at_k_explicit(y_true, y_pred, k, thres=1.0):
+def Recall_at_k_explicit(y_true, y_pred, k, thres=3.5):
     '''
         Recall evaluated at top K (Implicit).
     '''
@@ -168,7 +116,7 @@ def EvaluateModel(eval_model, eval_gen, eval_func, k):
     metric_list = []
     for (obs_records, unk_true) in eval_gen:
         unk_pred = eval_model.predict_on_batch(obs_records)
-        unk_pred[obs_records[0].astype(np.bool)] = -np.inf
+        unk_pred[obs_records.astype(np.bool)] = -np.inf
         metric_list.append(eval_func(unk_true, unk_pred, k))
     metric = np.mean(metric_list)
     return metric
